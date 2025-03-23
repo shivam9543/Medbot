@@ -1,25 +1,23 @@
-# Core Web/ML Frameworks
+# Web UI
 streamlit
-uvicorn
-fastapi
-pydantic==1.10.13
 
-# Deep Learning
-torch==2.1.0
+# Core dependencies
+torch
 clip-anytorch
 timm
 Pillow
+numpy==1.23.5
 
-# Transformers & Embeddings
-sentence-transformers==2.2.2
-transformers==4.37.2
-bitsandbytes==0.42.0
-accelerate==0.27.2
+# Sentence and CLIP Embeddings
+sentence-transformers
+transformers
 
-# Vector DB & Search
+# Vector DB
 chromadb==0.4.24
-faiss-cpu
 duckdb
+faiss-cpu
 
-# Utilities
-numpy==1.24.4
+# Optional but useful
+pydantic<2.0
+uvicorn
+fastapi

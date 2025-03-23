@@ -13,13 +13,13 @@ clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
 
 # Sentence Transformer models
 text_image_model = SentenceTransformer("clip-ViT-B-32")
-model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
+text_model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
 
 # Load ChromaDB collection
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="skin_diseases")
 
-# Huggingface model setup
+# Load Hugging Face model (Mistral-7B-Instruct)
 model_name = "mistralai/Mistral-7B-Instruct-v0.3"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 bnb_config = BitsAndBytesConfig(
@@ -36,23 +36,25 @@ llm_model = AutoModelForCausalLM.from_pretrained(
 
 # Embedding functions
 def get_text_embedding(text):
-    return model.encode(text).tolist()
+    return text_model.encode(text).tolist()
 
 def get_image_embedding(image_path):
     image = Image.open(image_path).convert("RGB")
     return text_image_model.encode(image).tolist()
 
+# ChromaDB search
 def search_skin_disease(query_text=None, query_image=None, top_k=5):
     if query_image:
         image_embedding = get_image_embedding(query_image)
-        results = collection.query(image_embedding, n_results=top_k)
+        results = collection.query(query_embeddings=[image_embedding], n_results=top_k)
     elif query_text:
         text_embedding = get_text_embedding(query_text)
-        results = collection.query(text_embedding, n_results=top_k)
+        results = collection.query(query_embeddings=[text_embedding], n_results=top_k)
     else:
         raise ValueError("Provide either an image or a text description.")
-    return results["metadatas"]
+    return results["metadatas"][0] if results["metadatas"] else []
 
+# Diagnosis generation using LLM
 def generate_diagnosis(retrieved_cases, user_query):
     context = "\n".join([
         f"Disease: {case['disease']}\nSymptoms: {case['symptoms']}"
@@ -77,25 +79,27 @@ def generate_diagnosis(retrieved_cases, user_query):
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 # Streamlit UI
-st.title("Skin Disease Diagnosis App")
+st.title("🩺 Skin Disease Diagnosis App")
 st.write("Upload your skin condition image and describe your symptoms below.")
 
-uploaded_image = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png", "webp"])
-user_symptoms = st.text_area("Describe your symptoms")
+uploaded_image = st.file_uploader("📤 Upload Image", type=["jpg", "jpeg", "png", "webp"])
+user_symptoms = st.text_area("📝 Describe your symptoms")
 
 if st.button("Get Diagnosis"):
     if not uploaded_image or not user_symptoms:
-        st.warning("Please upload an image and describe your symptoms.")
+        st.warning("⚠️ Please upload an image and describe your symptoms.")
     else:
         temp_path = f"temp_{uploaded_image.name}"
         with open(temp_path, "wb") as f:
             f.write(uploaded_image.read())
 
-        st.info("Searching similar cases and generating diagnosis...")
-        retrieved = search_skin_disease(query_text=user_symptoms, query_image=temp_path)
-        diagnosis = generate_diagnosis(retrieved, user_symptoms)
-
-        st.subheader("Diagnosis & Recommendation")
-        st.write(diagnosis)
+        st.info("🔍 Searching similar cases and generating diagnosis...")
+        try:
+            retrieved = search_skin_disease(query_text=user_symptoms, query_image=temp_path)
+            diagnosis = generate_diagnosis(retrieved, user_symptoms)
+            st.subheader("🩺 Diagnosis & Recommendation")
+            st.write(diagnosis)
+        except Exception as e:
+            st.error(f"❌ An error occurred: {str(e)}")
 
         os.remove(temp_path)

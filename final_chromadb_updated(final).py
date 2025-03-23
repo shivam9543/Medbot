@@ -2,95 +2,102 @@ import os
 import torch
 import clip
 from PIL import Image
-import chromadb
-from sentence_transformers import SentenceTransformer
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import streamlit as st
+from sentence_transformers import SentenceTransformer
+import chromadb
+from chromadb.config import Settings
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-# Load CLIP model
+# Load models
 device = "cuda" if torch.cuda.is_available() else "cpu"
-clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
 
-# Sentence Transformers
+clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
 text_image_model = SentenceTransformer("clip-ViT-B-32")
 text_model = SentenceTransformer("distiluse-base-multilingual-cased-v2")
 
-# ChromaDB Client
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
-collection = chroma_client.get_or_create_collection(name="skin_diseases")
-
-# Load Mistral Model
+# Load Mistral LLM
 model_name = "mistralai/Mistral-7B-Instruct-v0.3"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=os.getenv("HF_TOKEN"))
+
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_compute_dtype=torch.float16,
     bnb_4bit_use_double_quant=True,
     bnb_4bit_quant_type="nf4"
 )
+
 llm_model = AutoModelForCausalLM.from_pretrained(
     model_name,
     quantization_config=bnb_config,
-    device_map="auto"
+    device_map="auto",
+    use_auth_token=os.getenv("HF_TOKEN")
 )
 
-# Embedding Functions
+# ChromaDB setup
+chroma_client = chromadb.PersistentClient(path="./chroma_db", settings=Settings(allow_reset=True))
+collection = chroma_client.get_or_create_collection(name="skin_diseases")
+
+# Embedding functions
 def get_text_embedding(text):
     return text_model.encode(text).tolist()
 
-def get_image_embedding(image_path):
-    image = Image.open(image_path).convert("RGB")
+def get_image_embedding(image):
+    image = image.convert("RGB")
     return text_image_model.encode(image).tolist()
 
 def search_skin_disease(query_text=None, query_image=None, top_k=5):
     if query_image:
-        embedding = get_image_embedding(query_image)
+        image_embedding = get_image_embedding(query_image)
+        results = collection.query(image_embedding, n_results=top_k)
     elif query_text:
-        embedding = get_text_embedding(query_text)
+        text_embedding = get_text_embedding(query_text)
+        results = collection.query(text_embedding, n_results=top_k)
     else:
-        raise ValueError("Provide either an image or a text description.")
-    results = collection.query(embedding, n_results=top_k)
+        raise ValueError("Provide either text or image for search.")
     return results["metadatas"]
 
 def generate_diagnosis(retrieved_cases, user_query):
-    context = "\n".join([f"Disease: {case['disease']}\nSymptoms: {case['symptoms']}" for case in retrieved_cases])
+    context = "\n".join([
+        f"Disease: {case['disease']}\nSymptoms: {case['symptoms']}" for case in retrieved_cases
+    ])
+
     prompt = f"""
-A user has uploaded an image and described their symptoms.
-Based on the following medical cases, provide a possible diagnosis and remedies.
+    A user has uploaded an image of a skin condition and described their symptoms.
+    Based on the following medical records, provide a possible diagnosis.
 
-Medical Cases:
-{context}
+    Medical Cases:
+    {context}
 
-User Query:
-{user_query}
+    User Query:
+    {user_query}
 
-Analyze and suggest possible remedies or recommend a dermatologist if unsure.
-Diagnosis:
-"""
+    Analyze the context carefully to extract Remedies of the disease.
+    If it can't be found from the context, advise the patient to consult a dermatologist.
+    Diagnosis and Recommendations:
+    """
+
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     outputs = llm_model.generate(**inputs, max_length=500)
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-# Streamlit UI
-st.title("🩺 Skin Disease Diagnosis App")
-st.write("Upload your skin image and describe symptoms to get AI-powered diagnosis.")
 
-uploaded_image = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png", "webp"])
-user_symptoms = st.text_area("Describe your symptoms")
+# --- Streamlit UI ---
+st.set_page_config(page_title="Skin Disease Diagnosis", layout="centered")
+st.title("🩺 Skin Disease Diagnosis Assistant")
 
-if st.button("Get Diagnosis"):
-    if not uploaded_image or not user_symptoms:
-        st.warning("Please upload both image and symptoms.")
-    else:
-        temp_path = f"temp_{uploaded_image.name}"
-        with open(temp_path, "wb") as f:
-            f.write(uploaded_image.read())
+query_text = st.text_input("Describe your symptoms:")
+query_image = st.file_uploader("Or upload an image of the skin condition", type=["jpg", "jpeg", "png", "webp"])
 
-        st.info("Searching similar cases and generating diagnosis...")
-        retrieved = search_skin_disease(query_text=user_symptoms, query_image=temp_path)
-        diagnosis = generate_diagnosis(retrieved, user_symptoms)
+if st.button("Search & Diagnose"):
+    with st.spinner("Processing..."):
+        image_obj = Image.open(query_image) if query_image else None
+        retrieved_cases = search_skin_disease(query_text=query_text, query_image=image_obj)
+        diagnosis = generate_diagnosis(retrieved_cases, query_text or "No description provided")
+        st.subheader("🔍 Retrieved Medical Cases")
+        for case in retrieved_cases:
+            st.markdown(f"**Disease**: {case['disease']}")
+            st.markdown(f"**Symptoms**: {case['symptoms']}")
+            st.markdown("---")
 
-        st.subheader("Diagnosis & Recommendation")
-        st.write(diagnosis)
-
-        os.remove(temp_path)
+        st.subheader("💡 Diagnosis & Recommendations")
+        st.markdown(diagnosis)

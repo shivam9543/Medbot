@@ -9,3 +9,11 @@ bitsandbytes
 accelerate
 timm
 chromadb[all]==0.4.24
+sentence-transformers
+torch
+faiss-cpu
+duckdb
+uvicorn
+fastapi
+pydantic<2.0
+

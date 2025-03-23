@@ -1,23 +1,23 @@
-# Web UI
+# Web App Framework
 streamlit
 
-# Core dependencies
+# Core ML
 torch
 clip-anytorch
 timm
 Pillow
 numpy==1.23.5
 
-# Sentence and CLIP Embeddings
+# Embedding + Transformers
 sentence-transformers
 transformers
 
-# Vector DB
+# Vector Database
 chromadb==0.4.24
-duckdb
 faiss-cpu
+duckdb
 
-# Optional but useful
+# Utilities
 pydantic<2.0
 uvicorn
 fastapi

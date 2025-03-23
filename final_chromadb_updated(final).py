@@ -19,7 +19,7 @@ model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="skin_diseases")
 
-# Huggingface login not required here - assume model already downloaded
+# Huggingface model setup
 model_name = "mistralai/Mistral-7B-Instruct-v0.3"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 bnb_config = BitsAndBytesConfig(

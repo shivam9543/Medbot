@@ -6,15 +6,12 @@ pydantic<2.0
 
 # Deep Learning
 torch
-clip-anytorch
 timm
 Pillow
 
 # Transformers & Embeddings
 sentence-transformers
 transformers
-bitsandbytes
-accelerate
 
 # Vector DB & Search
 chromadb==0.4.24
@@ -22,4 +19,4 @@ faiss-cpu
 duckdb
 
 # Utilities
-numpy==1.23.5
+numpy==1.24.4

@@ -1,22 +1,10 @@
-# Core Web/ML Frameworks
 streamlit
-uvicorn
-fastapi
-pydantic<2.0
-
-# Deep Learning
 torch
 timm
 Pillow
-
-# Transformers & Embeddings
 sentence-transformers
 transformers
-
-# Vector DB & Search
-chromadb==0.4.24
+chromadb==0.4.14
 faiss-cpu
 duckdb
-
-# Utilities
 numpy==1.24.4

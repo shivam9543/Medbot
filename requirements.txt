@@ -13,6 +13,8 @@ Pillow
 # Transformers & Embeddings
 sentence-transformers
 transformers
+bitsandbytes
+accelerate
 
 # Vector DB & Search
 chromadb==0.4.24

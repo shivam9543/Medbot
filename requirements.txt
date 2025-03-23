@@ -8,3 +8,4 @@ transformers
 bitsandbytes
 accelerate
 timm
+chromadb[all]==0.4.24

@@ -1,23 +1,10 @@
-# Web App Framework
 streamlit
-
-# Core ML
+chromadb
 torch
+sentence-transformers
+transformers
+bitsandbytes
+accelerate
 clip-anytorch
 timm
 Pillow
-numpy==1.23.5
-
-# Embedding + Transformers
-sentence-transformers
-transformers
-
-# Vector Database
-chromadb==0.4.24
-faiss-cpu
-duckdb
-
-# Utilities
-pydantic<2.0
-uvicorn
-fastapi

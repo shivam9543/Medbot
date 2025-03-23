@@ -1,0 +1,10 @@
+streamlit
+torch
+clip-anytorch
+Pillow
+chromadb
+sentence-transformers
+transformers
+bitsandbytes
+accelerate
+timm

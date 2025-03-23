@@ -20,4 +20,4 @@ faiss-cpu
 duckdb
 
 # Utilities
-numpy
+numpy==1.23.5

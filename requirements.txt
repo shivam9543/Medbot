@@ -1,21 +1,27 @@
+# UI & Web frameworks
 streamlit
-torch
-clip-anytorch
-Pillow
-chromadb
-sentence-transformers
-transformers
-bitsandbytes
-accelerate
-timm
-chromadb[all]==0.4.24
-numpy==1.24.4
-sentence-transformers
-torch
-faiss-cpu
-duckdb
 uvicorn
 fastapi
+
+# Core ML/DL libraries
+torch
+clip-anytorch
+timm
+bitsandbytes
+accelerate
+
+# Image processing
+Pillow
+
+# Embedding & Transformers
+sentence-transformers
+transformers
+
+# Vector DB
+chromadb[all]==0.4.24
+faiss-cpu
+duckdb
+
+# Utilities
+numpy==1.24.4
 pydantic<2.0
-
-

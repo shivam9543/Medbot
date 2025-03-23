@@ -1,27 +1,23 @@
-# UI & Web frameworks
+# Core Web/ML Frameworks
 streamlit
 uvicorn
 fastapi
+pydantic<2.0
 
-# Core ML/DL libraries
+# Deep Learning
 torch
 clip-anytorch
 timm
-bitsandbytes
-accelerate
-
-# Image processing
 Pillow
 
-# Embedding & Transformers
+# Transformers & Embeddings
 sentence-transformers
 transformers
 
-# Vector DB
-chromadb[all]==0.4.24
+# Vector DB & Search
+chromadb==0.4.24
 faiss-cpu
 duckdb
 
 # Utilities
-numpy==1.24.4
-pydantic<2.0
+numpy

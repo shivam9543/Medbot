@@ -1,10 +1,7 @@
-streamlit
-chromadb
 torch
-sentence-transformers
 transformers
-bitsandbytes
-accelerate
-clip-anytorch
-timm
+sentence-transformers
+chromadb
+streamlit
 Pillow
+open-clip-torch

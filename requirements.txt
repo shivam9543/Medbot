@@ -1,7 +1,7 @@
+fastapi
+uvicorn
+pillow
+chromadb
+sentence-transformers
 torch
 transformers
-sentence-transformers
-chromadb
-streamlit
-Pillow
-open-clip-torch

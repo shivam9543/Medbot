@@ -1,26 +1,28 @@
 import os
-import clip
-from PIL import Image
 import streamlit as st
+from PIL import Image
+import torch
+import open_clip
 from sentence_transformers import SentenceTransformer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import chromadb
 from chromadb.config import Settings
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-# Force CPU-only usage
+# Force CPU usage
 device = "cpu"
 
-# Load CLIP model (for image features)
-clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
+# Load CLIP model (from open-clip-torch)
+clip_model, _, clip_preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="openai")
+clip_model.to(device)
 
-# Sentence Transformer models
+# Load SentenceTransformer models
 text_image_model = SentenceTransformer("clip-ViT-B-32", device=device)
 text_model = SentenceTransformer("distiluse-base-multilingual-cased-v2", device=device)
 
-# Load lightweight text generation LLM (FLAN-T5-Base)
-model_name = "google/flan-t5-base"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-llm_model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+# Load lightweight LLM (Flan-T5)
+llm_model_name = "google/flan-t5-base"
+tokenizer = AutoTokenizer.from_pretrained(llm_model_name)
+llm_model = AutoModelForSeq2SeqLM.from_pretrained(llm_model_name)
 
 # ChromaDB setup
 chroma_client = chromadb.PersistentClient(path="./chroma_db", settings=Settings(allow_reset=True))
@@ -34,7 +36,7 @@ def get_image_embedding(image):
     image = image.convert("RGB")
     return text_image_model.encode(image).tolist()
 
-# Search function
+# Search
 def search_skin_disease(query_text=None, query_image=None, top_k=5):
     if query_image:
         image_embedding = get_image_embedding(query_image)
@@ -46,7 +48,7 @@ def search_skin_disease(query_text=None, query_image=None, top_k=5):
         raise ValueError("Provide either text or image for search.")
     return results["metadatas"]
 
-# Diagnosis generation using lightweight LLM
+# Diagnosis generation
 def generate_diagnosis(retrieved_cases, user_query):
     context = "\n".join([
         f"Disease: {case['disease']}\nSymptoms: {case['symptoms']}" for case in retrieved_cases

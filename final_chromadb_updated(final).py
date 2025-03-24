@@ -1,37 +1,26 @@
 import os
-import torch
 import clip
 from PIL import Image
 import streamlit as st
 from sentence_transformers import SentenceTransformer
 import chromadb
 from chromadb.config import Settings
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-# Load models
-device = "cuda" if torch.cuda.is_available() else "cpu"
+# Force CPU-only usage
+device = "cpu"
 
+# Load CLIP model (for image features)
 clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
-text_image_model = SentenceTransformer("clip-ViT-B-32")
-text_model = SentenceTransformer("distiluse-base-multilingual-cased-v2")
 
-# Load Mistral LLM
-model_name = "mistralai/Mistral-7B-Instruct-v0.3"
-tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=os.getenv("HF_TOKEN"))
+# Sentence Transformer models
+text_image_model = SentenceTransformer("clip-ViT-B-32", device=device)
+text_model = SentenceTransformer("distiluse-base-multilingual-cased-v2", device=device)
 
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_compute_dtype=torch.float16,
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_quant_type="nf4"
-)
-
-llm_model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    quantization_config=bnb_config,
-    device_map="auto",
-    use_auth_token=os.getenv("HF_TOKEN")
-)
+# Load lightweight text generation LLM (FLAN-T5-Base)
+model_name = "google/flan-t5-base"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+llm_model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
 # ChromaDB setup
 chroma_client = chromadb.PersistentClient(path="./chroma_db", settings=Settings(allow_reset=True))
@@ -45,6 +34,7 @@ def get_image_embedding(image):
     image = image.convert("RGB")
     return text_image_model.encode(image).tolist()
 
+# Search function
 def search_skin_disease(query_text=None, query_image=None, top_k=5):
     if query_image:
         image_embedding = get_image_embedding(query_image)
@@ -56,6 +46,7 @@ def search_skin_disease(query_text=None, query_image=None, top_k=5):
         raise ValueError("Provide either text or image for search.")
     return results["metadatas"]
 
+# Diagnosis generation using lightweight LLM
 def generate_diagnosis(retrieved_cases, user_query):
     context = "\n".join([
         f"Disease: {case['disease']}\nSymptoms: {case['symptoms']}" for case in retrieved_cases
@@ -71,15 +62,14 @@ def generate_diagnosis(retrieved_cases, user_query):
     User Query:
     {user_query}
 
-    Analyze the context carefully to extract Remedies of the disease.
-    If it can't be found from the context, advise the patient to consult a dermatologist.
+    Provide a diagnosis and remedies based on similar cases.
+    If a specific diagnosis is not possible, recommend seeing a dermatologist.
     Diagnosis and Recommendations:
     """
 
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    outputs = llm_model.generate(**inputs, max_length=500)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, padding=True)
+    outputs = llm_model.generate(**inputs, max_new_tokens=300)
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
-
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="Skin Disease Diagnosis", layout="centered")
@@ -93,6 +83,7 @@ if st.button("Search & Diagnose"):
         image_obj = Image.open(query_image) if query_image else None
         retrieved_cases = search_skin_disease(query_text=query_text, query_image=image_obj)
         diagnosis = generate_diagnosis(retrieved_cases, query_text or "No description provided")
+
         st.subheader("🔍 Retrieved Medical Cases")
         for case in retrieved_cases:
             st.markdown(f"**Disease**: {case['disease']}")
